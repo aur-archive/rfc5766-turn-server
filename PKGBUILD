@@ -1,0 +1,61 @@
+# Maintainer: Vladimir Tsanev <tsachev@gmail.com>
+
+pkgname=rfc5766-turn-server
+_portname=turnserver
+pkgver=3.2.5.1
+pkgrel=1
+pkgdesc="STUN and TURN Relay Server for VoIP and WebRTC"
+arch=('i686' 'x86_64')
+url="http://code.google.com/p/rfc5766-turn-server/"
+license=('custom:New BSD')
+depends=('libevent' 'postgresql-libs' 'libmysqlclient' 'hiredis')
+install="$_portname.install"
+backup=("etc/turnserver.conf" "etc/turnuserdb.conf" "etc/logrotate.d/turnserver")
+changelog='ChangeLog'
+source=(http://$_portname.open-sys.org/downloads/v$pkgver/$_portname-$pkgver.tar.gz $_portname.service $_portname.tmpfiles.d $_portname.logrotate.d)
+md5sums=('0850c8be9404c0a2c738c37120f85ff0'
+         'bf568b614a17ee439e831b8f8aa7236a'
+         'aa7bf422a9dfba7febb56dc172feb1cf'
+         'ac95dc56771b4b461d7a34205ccc0ba9')
+sha1sums=('792ba978c9a23ed059d039c768542847cc99c6a0'
+          '0c5b348e793bd52ce0ee38d420b26c9b2a2e2ca5'
+          '445e9982549d7ed018bc1fb6176a730313ae3d26'
+          '07803c4fa00bdd987c2c6a4663b798563012bc6a')
+
+build() {
+  cd "$srcdir/$_portname-$pkgver"
+
+  ./configure --prefix=/usr --manprefix=/usr/share --examplesdir="/usr/share/$_portname/examples" --disable-rpath
+
+  make
+}
+
+check() {
+  cd "$srcdir/$_portname-$pkgver"
+  make check
+}
+
+package() {
+  cd "$srcdir/$_portname-$pkgver"
+  make DESTDIR="$pkgdir" install
+  
+  install -D "$pkgdir/usr/share/$_portname/examples/etc/turnserver.conf" "$pkgdir/etc/turnserver.conf"
+  install -D "$pkgdir/usr/share/$_portname/examples/etc/turnuserdb.conf" "$pkgdir/etc/turnuserdb.conf"
+  rm -r "$pkgdir/usr/etc"
+
+  chmod 644 "$pkgdir/usr/lib/libturnclient.a"
+
+  install -Dm 644 "../$_portname.service" "$pkgdir/usr/lib/systemd/system/$_portname.service"
+
+  install -Dm 644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  sed \
+          -e '/^#log-file=\/var\/tmp\/turn.log$/c log-file=\/var\/log\/turnserver\/turn.log' \
+          -i "$pkgdir/etc/turnserver.conf"
+  sed \
+          -e '/^#pidfile="\/var\/run\/turnserver.pid"$/c pidfile="\/var\/run\/turnserver\/turnserver.pid"' \
+          -i "$pkgdir/etc/turnserver.conf"
+
+  install -Dm644 "$srcdir/$_portname.tmpfiles.d" "$pkgdir/usr/lib/tmpfiles.d/$_portname.conf"
+  install -Dm644 "$srcdir/$_portname.logrotate.d" "$pkgdir/etc/logrotate.d/$_portname"
+}
